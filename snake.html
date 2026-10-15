@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game - Vitor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0a;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Press Start 2P', cursive;
+            color: #33ff33;
+            overflow: hidden;
+            position: relative;
+        }
+
+       
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15),
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 10;
+        }
+
+       
+        header {
+            text-align: center;
+            margin-bottom: 25px;
+            padding: 15px 30px;
+            border: 4px solid #33ff33;
+            background: #001100;
+            box-shadow: 
+                0 0 10px #33ff33,
+                inset 0 0 10px rgba(51, 255, 51, 0.2);
+            position: relative;
+        }
+
+        header h1 {
+            font-size: 1.6rem;
+            color: #33ff33;
+            text-shadow: 
+                0 0 5px #33ff33,
+                0 0 10px #33ff33,
+                2px 2px 0 #003300;
+            letter-spacing: 2px;
+        }
+
+        header .subtitle {
+            font-size: 0.7rem;
+            color: #99ff99;
+            margin-top: 8px;
+            opacity: 0.8;
+        }
+
+        .score-board {
+            display: flex;
+            gap: 40px;
+            margin-bottom: 18px;
+            font-size: 0.9rem;
+            text-shadow: 0 0 5px #33ff33;
+        }
+
+        .score-board span {
+            color: #ffff33;
+        }
+
+       
+        #gameCanvas {
+            background-color: #001a00;
+            border: 6px solid #33ff33;
+            box-shadow: 
+                0 0 15px #33ff33,
+                inset 0 0 20px rgba(0, 0, 0, 0.8);
+            image-rendering: pixelated;
+        }
+
+        .controls {
+            margin-top: 22px;
+            text-align: center;
+        }
+
+        button {
+            font-family: 'Press Start 2P', cursive;
+            background: #001100;
+            color: #33ff33;
+            border: 3px solid #33ff33;
+            padding: 12px 24px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.1s;
+            box-shadow: 0 0 8px #33ff33;
+        }
+
+        button:hover {
+            background: #33ff33;
+            color: #001100;
+            box-shadow: 0 0 15px #33ff33;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .instructions {
+            margin-top: 18px;
+            font-size: 0.55rem;
+            color: #66ff66;
+            text-align: center;
+            max-width: 420px;
+            line-height: 1.6;
+            opacity: 0.85;
+        }
+
+        .game-over {
+            position: absolute;
+            background: #001100;
+            color: #ff3333;
+            font-size: 1.4rem;
+            padding: 25px 40px;
+            border: 4px solid #ff3333;
+            box-shadow: 0 0 20px #ff3333;
+            display: none;
+            text-align: center;
+            z-index: 5;
+            text-shadow: 0 0 8px #ff3333;
+        }
+
+        .game-over small {
+            display: block;
+            font-size: 0.6rem;
+            color: #ff9999;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>SNAKE GAME</h1>
+        <div class="subtitle">- VITOR -</div>
+    </header>
+
+    <div class="score-board">
+        <div>SCORE: <span id="score">0</span></div>
+        <div>HI-SCORE: <span id="highScore">0</span></div>
+    </div>
+
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+    <div class="game-over" id="gameOver">
+        GAME OVER
+        <small>PRESS START TO TRY AGAIN</small>
+    </div>
+
+    <div class="controls">
+        <button id="startBtn">START GAME</button>
+    </div>
+
+    <div class="instructions">
+        USE ARROW KEYS TO MOVE<br>
+        EAT THE APPLES TO GROW AND SCORE POINTS
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const highScoreElement = document.getElementById('highScore');
+        const startBtn = document.getElementById('startBtn');
+        const gameOverScreen = document.getElementById('gameOver');
+
+        
+        const gridSize = 20;
+        const tileCount = canvas.width / gridSize;
+
+        let snake = [];
+        let food = {};
+        let dx = 0;
+        let dy = 0;
+        let score = 0;
+        let highScore = localStorage.getItem('snakeHighScore') || 0;
+        let gameRunning = false;
+        let gameLoop;
+
+        highScoreElement.textContent = highScore;
+
+        function initGame() {
+            snake = [
+                { x: 10, y: 10 },
+                { x: 9, y: 10 },
+                { x: 8, y: 10 }
+            ];
+            dx = 1;
+            dy = 0;
+            score = 0;
+            scoreElement.textContent = score;
+            placeFood();
+            gameOverScreen.style.display = 'none';
+        }
+
+        function placeFood() {
+            food = {
+                x: Math.floor(Math.random() * tileCount),
+                y: Math.floor(Math.random() * tileCount)
+            };
+
+            for (let segment of snake) {
+                if (segment.x === food.x && segment.y === food.y) {
+                    placeFood();
+                    return;
+                }
+            }
+        }
+
+        function draw() {
+           
+            ctx.fillStyle = '#001a00';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            
+            ctx.strokeStyle = '#003300';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < tileCount; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * gridSize, 0);
+                ctx.lineTo(i * gridSize, canvas.height);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, i * gridSize);
+                ctx.lineTo(canvas.width, i * gridSize);
+                ctx.stroke();
+            }
+
+           
+            snake.forEach((segment, index) => {
+                if (index === 0) {
+                    ctx.fillStyle = '#33ff33'; 
+                } else {
+                    ctx.fillStyle = '#00cc00';
+                }
+                ctx.fillRect(segment.x * gridSize + 1, segment.y * gridSize + 1, gridSize - 2, gridSize - 2);
+
+               
+                if (index === 0) {
+                    ctx.fillStyle = '#000';
+                    const eyeSize = 3;
+                    if (dx === 1) {
+                        ctx.fillRect(segment.x * gridSize + 12, segment.y * gridSize + 5, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x * gridSize + 12, segment.y * gridSize + 12, eyeSize, eyeSize);
+                    } else if (dx === -1) {
+                        ctx.fillRect(segment.x * gridSize + 4, segment.y * gridSize + 5, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x * gridSize + 4, segment.y * gridSize + 12, eyeSize, eyeSize);
+                    } else if (dy === -1) {
+                        ctx.fillRect(segment.x * gridSize + 5, segment.y * gridSize + 4, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x * gridSize + 12, segment.y * gridSize + 4, eyeSize, eyeSize);
+                    } else if (dy === 1) {
+                        ctx.fillRect(segment.x * gridSize + 5, segment.y * gridSize + 12, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x * gridSize + 12, segment.y * gridSize + 12, eyeSize, eyeSize);
+                    }
+                }
+            });
+
+            ctx.fillStyle = '#ff3333';
+            ctx.fillRect(food.x * gridSize + 2, food.y * gridSize + 2, gridSize - 4, gridSize - 4);
+
+
+            ctx.fillStyle = '#ff9999';
+            ctx.fillRect(food.x * gridSize + 4, food.y * gridSize + 4, 4, 4);
+        }
+
+        function update() {
+            if (!gameRunning) return;
+
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+     
+            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+                endGame();
+                return;
+            }
+
+            for (let segment of snake) {
+                if (head.x === segment.x && head.y === segment.y) {
+                    endGame();
+                    return;
+                }
+            }
+
+            snake.unshift(head);
+
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                scoreElement.textContent = score;
+                if (score > highScore) {
+                    highScore = score;
+                    highScoreElement.textContent = highScore;
+                    localStorage.setItem('snakeHighScore', highScore);
+                }
+                placeFood();
+            } else {
+                snake.pop();
+            }
+
+            draw();
+        }
+
+        function endGame() {
+            gameRunning = false;
+            clearInterval(gameLoop);
+            gameOverScreen.style.display = 'block';
+            startBtn.textContent = 'TRY AGAIN';
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+
+            switch (e.key) {
+                case 'ArrowUp':
+                    if (dy !== 1) { dx = 0; dy = -1; }
+                    break;
+                case 'ArrowDown':
+                    if (dy !== -1) { dx = 0; dy = 1; }
+                    break;
+                case 'ArrowLeft':
+                    if (dx !== 1) { dx = -1; dy = 0; }
+                    break;
+                case 'ArrowRight':
+                    if (dx !== -1) { dx = 1; dy = 0; }
+                    break;
+            }
+        });
+
+        startBtn.addEventListener('click', () => {
+            if (gameRunning) return;
+
+            initGame();
+            gameRunning = true;
+            startBtn.textContent = 'PLAYING...';
+            gameLoop = setInterval(update, 120);
+            draw();
+        });
+
+       
+        initGame();
+        draw();
+    </script>
+</body>
+</html>
